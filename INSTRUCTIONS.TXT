@@ -1,0 +1,52 @@
+I want you to design and develop an old school RPG adventure game.  The kind that your dad would have played on his old ZX Speccy back in the day.
+
+No fancy graphics, no orchestral sound, just text on a screen.  Lots and lots of text on a screen.
+
+I’ll outline what I want over the next few slides, then its over to you.  Lets get cracking!
+
+
+
+Part 1 – Hero Creation
+The user creates a hero. They give the hero a name.  They hero must have the following values:
+
+-Health
+-Damage
+-Lives
+-Kills
+-Gold
+
+How you implement this is up to you.
+
+
+Part 2 – The World
+The hero moves through a world.  They come to crossroads.  At the crossroads there may be monsters blocking the hero's way.  The hero can fight or run.
+
+Occasionally they will be a shop where the hero can upgrade their health & weapons.
+
+How you implement this is up to you.
+
+
+Part 3 - Fighting
+The monster has a health & defence value like the hero.  How you implement this is up to you.
+
+They fight in a series of rounds.  If the hero’s health goes to 0 they lose a life and go back to the start.  If the monster’s health goes to 0 they die.  The hero gets access to a treasure box full of gold.
+
+How you implement this is up to you.
+
+
+
+
+Part 4 – The Shop
+Occasionally the hero will have access to a shop.  Here they can replenish their health, increase their health by 20% or increase their damage by 20%.  
+
+How you implement this is up to you.
+
+
+Part 4 – Death and Leader board
+When the hero is dead, their stats need to be saved to a file.
+Then all previous hero's stats need to be displayed on screen.  
+
+How you implement this is up to you.
+The game then starts again and a new hero is created.
+
+
