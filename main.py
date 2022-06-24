@@ -20,9 +20,11 @@ OVERLORD = Rank('OVERLORD', 1000, 325, 75, 15)
 # Handling rankups
 rankOrder = [ROOKIE, NOVICE, CADET, ADEPT, MASTER, LEGEND, OVERLORD]
 
+
 class Player:
+  
+  
   def __init__(self, playerName):
-    global rankOrder
     self.name = playerName
     self.health: int = 100
     self.maxHealth: int = 100
@@ -34,6 +36,14 @@ class Player:
     self.inventory = []
     self.kills = 0
     self.currentFloor = 1
+    self.effectQueue = []
+
+  def takeDamage(self, damage):
+    self.health -= damage
+    # Check if dies?
+
+  def addEffect(self, effectType, strength):
+    return
     
 class Enemy:
   def __init__(self, enemyName, enemyAttack, enemyHP):
@@ -54,4 +64,3 @@ def hasDodged() -> bool:
 
 
 # Game Logic
-
