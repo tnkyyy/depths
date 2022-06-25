@@ -9,41 +9,74 @@ class Rank:
     self.xpRequired = xpRequired
 
 # Ranks
-ROOKIE = Rank('ROOKIE', 0, 100, 20, 2)
-NOVICE = Rank('NOVICE', 200, 120, 25, 4)
-CADET = Rank('CADET', 300, 145, 33, 6)
-ADEPT = Rank('ADEPT', 500, 175, 41, 8)
-MASTER = Rank('MASTER', 700, 210, 50, 10)
-LEGEND = Rank('LEGEND', 800, 250, 60, 12)
-OVERLORD = Rank('OVERLORD', 1000, 325, 75, 15)
+ROOKIE = Rank('ROOKIE', 200, 100, 20, 2)
+NOVICE = Rank('NOVICE', 300, 120, 25, 4)
+CADET = Rank('CADET', 500, 145, 33, 6)
+ADEPT = Rank('ADEPT', 700, 175, 41, 8)
+MASTER = Rank('MASTER', 800, 210, 50, 10)
+LEGEND = Rank('LEGEND', 1000, 250, 60, 12)
+OVERLORD = Rank('OVERLORD', 9999, 325, 75, 15)
 
 # Handling rankups
 rankOrder = [ROOKIE, NOVICE, CADET, ADEPT, MASTER, LEGEND, OVERLORD]
 
 
 class Player:
-  
-  
   def __init__(self, playerName):
     self.name = playerName
     self.health: int = 100
     self.maxHealth: int = 100
     self.dodge: int = 2 # Base dodge is 2%
-    self.ACG: float = 0
+    self.essence: float = 0
     self.rank = ROOKIE
-    self.xpToNextRank = rankOrder[rankOrder.index(self.rank) + 1].xpRequired
-    self.attack = self.rank.baseAttack
+    self.xpToNextRank = rankOrder[rankOrder.index(self.rank)].xpRequired
+    self.baseAttack = self.rank.baseAttack
+    self.bonusAttack = 0
     self.inventory = []
     self.kills = 0
     self.currentFloor = 1
     self.effectQueue = []
 
-  def takeDamage(self, damage):
-    self.health -= damage
+
+  def changeHealth(self, newHealth):
+    self.health = newHealth
     # Check if dies?
 
-  def addEffect(self, effectType, strength):
-    return
+  def changeName(self, newName):
+    self.name = newName
+
+  def changeMaxHealth(self, newMaxHealth):
+    self.maxHealth = newMaxHealth
+
+  def changeDodge(self, newDodge):
+    self.dodge = newDodge
+
+  def changeEssence(self, newEssence):
+    self.essence = newEssence
+
+  def rankUp(self):
+    self.rank = rankOrder[rankOrder.index(self.rank) + 1]
+
+  def changeBonusAttack(self, newBonusAttack):
+    self.bonusAttack = newBonusAttack
+
+  def addKill(self):
+    self.kills += 1
+
+  def addFloor(self):
+    self.currentFloor += 1
+  
+  dispatch = {'NAM':changeName, 'HEL':changeHealth, 'MAX':changeMaxHealth}  
+  
+  def addEffect(self, effectCode, value):
+    self.dispatch[effectCode](self, value)
+    print(f'Added effect {effectCode} with value {value}')
+
+  
+  
+  
+  
+  
     
 class Enemy:
   def __init__(self, enemyName, enemyAttack, enemyHP):
@@ -64,3 +97,8 @@ def hasDodged() -> bool:
 
 
 # Game Logic
+p = Player('Rowan')
+print(p.name)
+print(p.health)
+p.addEffect('HEL', 50)
+print(p.health)
