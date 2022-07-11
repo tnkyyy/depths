@@ -194,14 +194,25 @@ class Coords:
   x: int
   y: int
 
+usedCoords = []
+# We need to ensure that duplicate coords are not present, naive approach so I'll have a look later
 def generateCoords(range):
-  return Coords(randint(0, range - 1), randint(0, range - 1))
-
+  global usedCoords
+  valid = True
+  newCoord = Coords(randint(0, range - 1), randint(0, range - 1))
+  while True:
+    for item in usedCoords:
+      if item.x == newCoord.x and item.y == newCoord.y:
+        valid = False
+    if valid:
+      break # We can get out of the infinite loop
+    newCoord = Coords(randint(0, range - 1), randint(0, range - 1))
+  return newCoord
+  
 def generateGameMap(mapSize):
   result = []
   result.append(['w' for x in range(mapSize)])
-  poiCoords = {'f':generateCoords(mapSize - 2), 'r':generateCoords(mapSize - 2) if randint(0, 1) == 1 else Coords(0,0), 's':generateCoords(mapSize - 2), 'v':generateCoords(mapSize - 2)}
-  # We need to ensure that duplicate coords are not present, naive approach so I'll have a look later    
+  poiCoords = {'f':generateCoords(mapSize - 2), 'r':generateCoords(mapSize - 2) if randint(0, 1) == 1 else Coords(0,0), 's':generateCoords(mapSize - 2), 'v':generateCoords(mapSize - 2)} 
   for y in range(mapSize - 2):
     row = ['w']
     for x in range(mapSize - 2):
@@ -218,6 +229,5 @@ def generateGameMap(mapSize):
   return result
     
 ####### GAME LOGIC #########
-
 
 print(generateGameMap(5))
