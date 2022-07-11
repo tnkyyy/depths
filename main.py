@@ -1,7 +1,8 @@
-from random import randrange
+from random import randrange, randint
 import shutil # Finding terminal size, for centering
 from dataclasses import dataclass
 from typing import Any
+from pick import pick
 
 def printc(s):
     print(s.center(shutil.get_terminal_size().columns))
@@ -32,6 +33,36 @@ class ItemQueueEntry:
   effectStrength: int
   secondaryEffectStrength: Any
 
+@dataclass
+class Item:
+  name: str
+  description: str
+  duration: int
+  isOneOff: bool
+  effect: str
+  secondaryEffect: Any
+  strength: int
+  secondaryStrength: Any
+  cost: float
+
+# This will be moved to a different file later
+items = [Item('Bulwark', 'Adds maximum health to bolster defence', 3, False, 'MAX', None, 50, None, 2.50),
+         Item('Stim', 'Increases your dodge significantly but reduces your maximum health.', 2, False, 'DOD', 'MAX', 20, -25, 4),
+        Item('Name Tag', 'Allows you to change your name', 0, True, 'NAM', None, 1, 1, 3)]
+
+def getItemDefinition(itemName):
+    global items
+    for item in items:
+      if item.name == itemName:
+        return item
+    raise KeyError(f'No item with name "{itemName}"')
+
+def getEnemyDefinition(enemyName):
+  global enemies
+  for enemy in enemies:
+    if enemy.name == enemyName:
+      return enemy
+  raise KeyError(f'No enemy with name "{enemyName}"')
 
 # Handling rankups
 rankOrder = [ROOKIE, NOVICE, CADET, ADEPT, MASTER, LEGEND, OVERLORD]
@@ -65,14 +96,16 @@ class Player:
     self.health = newHealth
     # Check if dies?
 
-  def changeName(self, newName):
-    self.name = newName
+  def changeName(self, defaultParameter):
+    newName = ''
+    while newName == '':
+      newName = input('Enter a new name for your character: ')
 
   def changeMaxHealth(self, newMaxHealth):
     self.maxHealth += newMaxHealth
 
   def changeDodge(self, newDodge):
-    self.dodge = newDodge
+    self.dodge += newDodge
 
   def changeEssence(self, newEssence):
     self.essence = newEssence
@@ -87,7 +120,7 @@ class Player:
     self.currentFloor += 1
 
   # THIS IS WHERE ITEM EFFECTS ARE DEFINED
-  dispatch = {'NAM':changeName, 'HEL':changeHealth, 'MAX':changeMaxHealth}  
+  dispatch = {'NAM':changeName, 'HEL':changeHealth, 'MAX':changeMaxHealth, 'DOD':changeDodge}  
   
   def addEffect(self, effectCode, value):
     self.dispatch[effectCode](self, value)
@@ -100,7 +133,8 @@ class Player:
     self.addEffect(item.effect, item.strength)
     if item.secondaryEffect != None:
       self.addEffect(item.secondaryEffect, item.secondaryStrength)
-    self.itemQueue.append(ItemQueueEntry(item.name, item.duration, item.effect, item.secondaryEffect, item.strength, item.secondaryStrength))
+    if item.isOneOff == False:
+      self.itemQueue.append(ItemQueueEntry(item.name, item.duration, item.effect, item.secondaryEffect, item.strength, item.secondaryStrength))
   
   def itemQueueSweep(self):
     for item in self.itemQueue:
@@ -118,51 +152,72 @@ class Player:
 
   def newTurn(self):
     self.itemQueueSweep()
-        
-@dataclass
-class Item:
-  name: str
-  description: str
-  duration: int
-  effect: str
-  secondaryEffect: Any
-  strength: int
-  secondaryStrength: Any
-  cost: float
 
-# This will be moved to a different file later
-i_bulwark = Item('Bulwark', 'Adds maximum health to bolster defence', 3, 'MAX', None, 50, None, 2.50)
+  def getItemIndexFromPrompt(self):
+    promptArr = []
+    returnPrompt = '--- Return ---'
+    title = 'Choose an item to use: '
+    for item in self.inventory:
+      promptArr.append(f'{item.name}: {item.description}')
+    promptArr.append(returnPrompt)
+    option, index = pick(promptArr, title)
+    if option == returnPrompt:
+      return None
+    else:
+      return index
+
+  def useItemFlow(self):
+    itemIndex = self.getItemIndexFromPrompt()
+    if itemIndex != None:
+      self.useItem(itemIndex)
+    else:
+      return
 
 class Enemy:
-  def __init__(self, enemyName, enemyAttack, enemyHP):
+  def __init__(self, enemyName, enemyAttack, enemyHP, dodge):
     self.name = enemyName
     self.attack = enemyAttack
     self.health = enemyHP
+    self.dodge = dodge
   
 
-def hasDodged() -> bool:
+def hasDodged(e) -> bool: # e -> entity
   # We need to refer to the global variable of the player
-  global mainPlayer
   # Generates a random integer between 0 and 100 inclusive
   dodgeValue = randrange(101)
   # The greater the player dodge, the more likely that this evaluates to true
   # We can just return the expression as it will evaluate to true or false itself
-  return dodgeValue <= mainPlayer.dodge
+  return dodgeValue <= e.dodge
+
+@dataclass
+class Coords:
+  x: int
+  y: int
+
+def generateCoords(range):
+  return Coords(randint(0, range - 1), randint(0, range - 1))
+
+def generateGameMap(mapSize):
+  result = []
+  result.append(['w' for x in range(mapSize)])
+  poiCoords = {'f':generateCoords(mapSize - 2), 'r':generateCoords(mapSize - 2) if randint(0, 1) == 1 else Coords(0,0), 's':generateCoords(mapSize - 2), 'v':generateCoords(mapSize - 2)}
+  # We need to ensure that duplicate coords are not present, naive approach so I'll have a look later    
+  for y in range(mapSize - 2):
+    row = ['w']
+    for x in range(mapSize - 2):
+      poiFound = False
+      for poi in poiCoords.keys():
+        if poiCoords[poi].x == x and poiCoords[poi].y == y:
+          row.append(poi)
+          poiFound = True
+      if poiFound == False:
+        row.append('')
+    row.append('w')
+    result.append(row)
+  result.append(['w' for x in range(mapSize)])
+  return result
+    
+####### GAME LOGIC #########
 
 
-
-# Game Logic
-p = Player()
-print(p.maxHealth)
-p.getItem(i_bulwark)
-print(p.maxHealth)
-p.useItem(0)
-print(p.maxHealth)
-p.newTurn()
-print(p.maxHealth)
-p.newTurn()
-print(p.maxHealth)
-p.newTurn()
-print(p.maxHealth)
-p.newTurn()
-print(p.maxHealth)
+print(generateGameMap(5))
