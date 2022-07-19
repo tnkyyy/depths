@@ -1,8 +1,9 @@
-from random import randrange, randint
+from random import randrange, randint, choice
 import shutil # Finding terminal size, for centering
 from dataclasses import dataclass
 from typing import Any
 from pick import pick
+import os
 
 def printc(s):
     print(s.center(shutil.get_terminal_size().columns))
@@ -57,12 +58,7 @@ def getItemDefinition(itemName):
         return item
     raise KeyError(f'No item with name "{itemName}"')
 
-def getEnemyDefinition(enemyName):
-  global enemies
-  for enemy in enemies:
-    if enemy.name == enemyName:
-      return enemy
-  raise KeyError(f'No enemy with name "{enemyName}"')
+
 
 # Handling rankups
 rankOrder = [ROOKIE, NOVICE, CADET, ADEPT, MASTER, LEGEND, OVERLORD]
@@ -72,7 +68,7 @@ class Player:
     self.health: int = 100
     self.maxHealth: int = 100
     self.dodge: int = 2 # Base dodge is 2%
-    self.essence: float = 0
+    self.gold: float = 0
     self.rank = ROOKIE
     self.xpToNextRank = rankOrder[rankOrder.index(self.rank)].xpRequired
     self.baseAttack = self.rank.baseAttack
@@ -81,6 +77,7 @@ class Player:
     self.kills = 0
     self.currentFloor = 1
     self.itemQueue = []
+    self.hasMap = False
 
   def gainXP(self, xpAmount):
     self.xpToNextRank -= xpAmount
@@ -107,20 +104,27 @@ class Player:
   def changeDodge(self, newDodge):
     self.dodge += newDodge
 
-  def changeEssence(self, newEssence):
-    self.essence = newEssence
+  def changeGold(self, newGold):
+    self.gold = newGold
 
   def changeBonusAttack(self, newBonusAttack):
     self.bonusAttack = newBonusAttack
+
+  def findItem(self, itemCode):
+    global getItemDefinition
+    self.getItem(getItemDefinition(itemCode))
+
+  def changeMapStatus(self, hasMap):
+    self.hasMap = hasMap
+    
+  # THIS IS WHERE ITEM EFFECTS ARE DEFINED
+  dispatch = {'NAM':changeName, 'HEL':changeHealth, 'MAX':changeMaxHealth, 'DOD':changeDodge, 'GOL':changeGold, 'BOA':changeBonusAttack, 'MAP':changeMapStatus}  
 
   def addKill(self):
     self.kills += 1
 
   def addFloor(self):
     self.currentFloor += 1
-
-  # THIS IS WHERE ITEM EFFECTS ARE DEFINED
-  dispatch = {'NAM':changeName, 'HEL':changeHealth, 'MAX':changeMaxHealth, 'DOD':changeDodge}  
   
   def addEffect(self, effectCode, value):
     self.dispatch[effectCode](self, value)
@@ -173,13 +177,63 @@ class Player:
     else:
       return
 
+  def newFloor(self):
+    self.addFloor()
+    self.removeMap()
+
+
 class Enemy:
-  def __init__(self, enemyName, enemyAttack, enemyHP, dodge):
+  def __init__(self, enemyName, enemyAttack, enemyHP, dodge, xpGiven, goldGiven):
     self.name = enemyName
     self.attack = enemyAttack
     self.health = enemyHP
     self.dodge = dodge
-  
+    self.xpGiven = xpGiven
+    self.goldGiven = goldGiven
+
+  def takeDamage(self, damage):
+    self.health -= damage
+
+enemyList = [
+  Enemy('Goblin', 5, 30, 1, 15, 0.1),
+  Enemy('Armoured Goblin', 3, 50, 0, 25, 0.2),
+  Enemy('Striker Goblin', 7, 20, 10, 10, 0.1)
+]
+
+def getEnemyDefinition(enemyName):
+  global enemyList
+  for enemy in enemyList:
+    if enemy.name == enemyName:
+      return enemy
+  raise KeyError(f'No enemy with name "{enemyName}"')
+
+@dataclass
+class Encounter:
+  enemies: list
+  minLevel: int
+  id: str
+
+
+encounterList = [
+  Encounter([
+    'Goblin','Goblin'
+  ], 1, 'Goblin Gang'),
+  Encounter([
+    'Armoured Goblin'
+  ], 1, 'Goblin Guard'),
+  Encounter([
+    'Armoured Goblin', 'Striker Goblin'
+  ], 2, 'Father and Son')
+]
+
+def getRandomEncounterOfLevel(minLevel):
+  e = choice(encounterList)
+  while e.minLevel > minLevel:
+    e = choice(encounterList)
+
+  return e
+
+
 
 def hasDodged(e) -> bool: # e -> entity
   # We need to refer to the global variable of the player
@@ -189,45 +243,117 @@ def hasDodged(e) -> bool: # e -> entity
   # We can just return the expression as it will evaluate to true or false itself
   return dodgeValue <= e.dodge
 
-@dataclass
+
 class Coords:
-  x: int
-  y: int
+  def __init__(self, x, y):
+    self.x = x
+    self.y = y
+
+  def __add__(c1, c2): # So we can add coordinates together for handling movement
+    return Coords(c1.x + c2.x, c1.y + c2.y)
 
 usedCoords = []
 # We need to ensure that duplicate coords are not present, naive approach so I'll have a look later
 def generateCoords(range):
   global usedCoords
-  valid = True
   newCoord = Coords(randint(0, range - 1), randint(0, range - 1))
   while True:
+    valid = True
     for item in usedCoords:
       if item.x == newCoord.x and item.y == newCoord.y:
         valid = False
     if valid:
       break # We can get out of the infinite loop
     newCoord = Coords(randint(0, range - 1), randint(0, range - 1))
+  usedCoords.append(newCoord)
   return newCoord
   
 def generateGameMap(mapSize):
   result = []
   result.append(['w' for x in range(mapSize)])
-  poiCoords = {'f':generateCoords(mapSize - 2), 'r':generateCoords(mapSize - 2) if randint(0, 1) == 1 else Coords(0,0), 's':generateCoords(mapSize - 2), 'v':generateCoords(mapSize - 2)} 
+  poiCoords = {'f':generateCoords(mapSize - 2), 'r':generateCoords(mapSize - 2) if randint(0, 1) == 1 else None, 's':generateCoords(mapSize - 2), 'v':generateCoords(mapSize - 2), 'p':generateCoords(mapSize - 2)} 
   for y in range(mapSize - 2):
     row = ['w']
     for x in range(mapSize - 2):
       poiFound = False
       for poi in poiCoords.keys():
+        if poiCoords[poi] == None:
+          continue
         if poiCoords[poi].x == x and poiCoords[poi].y == y:
           row.append(poi)
           poiFound = True
       if poiFound == False:
-        row.append('')
+        row.append(' ')
     row.append('w')
     result.append(row)
   result.append(['w' for x in range(mapSize)])
   return result
-    
+
+@dataclass
+class Event:
+  story: str
+  effect: str
+  effectStrength: float
+
+events = [
+  Event('PLAYERNAME finds an inn and recovers some health',
+       'HEL',
+       25),
+  Event('PLAYERNAME trips over a log and loses some health',
+       'HEL',
+       -20),
+  Event('PLAYERNAME finds a chest and opens it, and finds some gold!',
+       'GOL',
+       1.5),
+  Event('PLAYERNAME sees an object on the floor and picks it up. Its a map!',
+       'MAP',
+       True)
+]
+
+symbolsOn = None
+
+def formatMap(map):
+  global symbolsOn
+  result = []
+  definition = {'w':'█', 'p':'🧍', ' ':' ', 's':'💰', 'v':'❓', 'f':'⚔', 'r':'🛏'}
+  for row in map:
+    t = []
+    for item in row:
+      if symbolsOn:
+        t.append(definition[item])
+        continue
+      t.append(item)
+    result.append(''.join(t))
+
+  return '\n'.join(result)
+
+def displayMap(p, m):
+  if p.hasMap:
+    print(formatMap(m))
+
+def handleMovement(m):
+  basisDict = {'Up':Coords(0, -1), 'Down':Coords(0, 1), 'Right':Coords(1, 0), 'Left':Coords(-1, 0)}
+  d, i = pick(['Up', 'Down', 'Right', 'Left'], 'Choose a direction to travel: ')
+  # Match case not supported on repl yet
+  for row in map:
+    if 'p' in row:
+      playerPos = Coords(row.index('p'), map.index(row))
+  newPos = playerPos + basisDict[d] # We can add objects together by the class using __add__()
+  
+  
+
+
+
+p = Player()
+m = generateGameMap(5)
+symbolsOn = True if input('Do you want experimental map symbols on (often look bad)? (y/n) ') == 'y' else False
+
+def takeTurn():
+  os.system('clear')
+  global p, m
+  displayMap(p, m)
+  x = input('Press enter when ready to move: ')
 ####### GAME LOGIC #########
 
-print(generateGameMap(5))
+
+handleMovement(m)
