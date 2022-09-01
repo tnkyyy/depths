@@ -5,6 +5,7 @@ from typing import Any
 from pick import pick
 import os
 import math
+import time
 
 
 def printc(s):
@@ -113,6 +114,17 @@ items = [
         -20,
         7,
     ),
+    Item(
+        "Map",
+        "Allows you to see the map layout of floors permanently",
+        "N/A",
+        True,
+        "MAP",
+        None,
+        True,
+        None,
+        10,
+    ),
 ]
 
 
@@ -150,16 +162,31 @@ class Player:
         if self.xpToNextRank <= 0:
             self.rankUp()
 
-    def changeHealth(self, newHealth):
+    def gainGold(self, goldAmount):
+        self.gold += goldAmount
+
+    def changeHealth(self, nhealth):
+        newHealth = self.health + nhealth
         self.health = min(
             newHealth, self.maxHealth
         )  # Clamp so health can't go above max
-        # Check if dies?
 
+    def takeDamage(self, damage):
+        self.health -= damage
+        if self.health <= 0:
+          self.endGame()
+
+    def endGame(self):
+      print(f'{self.name} perished!')
+      time.sleep(1)
+      print(f'You reached floor {self.currentFloor}')
+      
+    
     def changeName(self, defaultParameter):
         newName = ""
         while newName == "":
             newName = input("Enter a new name for your character: ")
+            self.name = newName
 
     def changeMaxHealth(self, newMaxHealth):
         self.maxHealth += newMaxHealth
@@ -276,25 +303,22 @@ class Player:
         else:
             return
 
-    def newFloor(self):
-        self.addFloor()
-        self.removeMap()
-
 
 @dataclass
 class EnemyInfo:
     name: str
     attack: int
     health: int
+    maxHealth: int
     dodge: int
     xpGiven: int
     goldGiven: float
 
 
 enemyList = [
-    EnemyInfo("Goblin", 5, 30, 1, 15, 0.1),
-    EnemyInfo("Armoured Goblin", 3, 50, 0, 25, 0.2),
-    EnemyInfo("Striker Goblin", 7, 20, 10, 10, 0.1),
+    EnemyInfo("Goblin", 5, 30, 30, 1, 15, 0.1),
+    EnemyInfo("Armoured Goblin", 3, 50, 50, 0, 25, 0.2),
+    EnemyInfo("Striker Goblin", 7, 20, 20, 10, 10, 0.1),
 ]
 
 
@@ -475,7 +499,7 @@ def handleMovement(
             os.system("clear")
             print("Invalid direction!")
             displayMap(p, m)
-            x = input("Press enter when ready to move: ")
+            _ = input("Press enter when ready to move: ")
 
     m[newPos.y][newPos.x] = "p"
     m[playerPos.y][playerPos.x] = " "
@@ -499,11 +523,77 @@ symbolsOn = (
 
 # TILE ACTIONS
 
+# encounterList = [
+#    Encounter(["Goblin", "Goblin"], 1, "Goblin Gang"),
+#    Encounter(["Armoured Goblin"], 1, "Goblin Guard"),
+# Encounter(["Armoured Goblin", "Striker Goblin"], 2, "Father and Son"),
+# ]
+
+# Fight sleep value (so can be adjusted easily)
+fsv = 1
+
 
 def fightFlow():
     global p
     e = getRandomEncounterOfLevel(p.currentFloor)
     print(f"You stumbled across a {e.id}!")
+    print(f"Enemies: {', '.join(e.enemies)}")
+    eList = [getEnemyDefinition(en) for en in e.enemies]
+    while len(eList) > 0:
+        # Player's turn
+        os.system("clear")
+        print("It's your turn!")
+        time.sleep(fsv)
+        edisplaylist = map(
+            lambda enemy: f"{enemy.name}: . Health Remaining: {enemy.health}/{enemy.maxHealth}. Attack: {enemy.attack}"
+        )
+        n, i = pick(
+            edisplaylist,
+            f"Choose an enemy to attack!\nYour health remaining: {p.health}/{p.maxHealth}",
+        )
+        time.sleep(fsv)
+        eHit = eList[i]
+        if hasDodged(eHit) == False:
+            dmg = randrange(
+                (p.baseAttack + p.bonusAttack) - 3, (p.baseAttack + p.bonusAttack) + 3
+            )
+            eHit.health -= dmg
+            if dmg == (p.baseAttack + p.bonusAttack) + 3:
+                print("Critical hit!")
+                time.sleep(fsv)
+            print(
+                f"You hit the {eHit.name} for {dmg} damage! It has {eHit.health}/{eList[i].maxHealth} remaining!"
+            )
+            time.sleep(fsv)
+            if eHit.health <= 0:
+                xp = randrange(
+                    max(
+                        0,
+                        (eHit.xpGiven) - 10,
+                        (eHit.baseAttack + eHit.bonusAttack) + 10,
+                    )
+                )
+                gold = randrange(max(0, (eHit.goldGiven) - 1, (eHit.goldGiven) + 1))
+                print(f"You killed the {eHit.name} and gained {xp} XP and {gold} Gold!")
+                time.sleep(fsv)
+                p.gainXP(xp)
+                p.gainGold(gold)
+                eList.remove(i)
+        else:
+            print(f"The {eHit.name} dodged your attack!")
+            time.sleep(fsv)
+        print('It\'s the enemies\' turn!')
+        time.sleep(fsv)
+        for e in eList:
+          dmg = randrange(e.attack + 3, e.attack - 3)
+          if (hasDodged(p) == False):
+            print(f'{e.name} attacked for {dmg} damage!')
+            if dmg == e.attack + 3:
+              print('Critical hit!')
+            p.takeDamage(dmg)
+            print(f'Your health remaining: {p.health}/{p.maxHealth}')
+            time.sleep(fsv)
+    print('You have completed the battle. Congratulations!')
 
 
 restDialogues = [
@@ -518,7 +608,7 @@ def restFlow():
     global p
     percentHealed = randrange(15, 30)
     healed = math.floor((percentHealed / 10) * p.maxHealth)
-    p.changeHealth(p.health + healed)
+    p.changeHealth(healed)
     print(choice(restDialogues).replace("CONTENT", str(healed)))
     _ = input("Press enter to continue...")
 
@@ -532,6 +622,7 @@ def shopFlow():
             itemsInShop,
         )
     )  # readable item list
+    rilist.append()
     rilist.append("Don't buy an item")
     # print(list(map(lambda i: f'{i.name}: {i.description}', p.inventory))) Some estoeric python which takes the array of current items and turns it into a more human readable format
     n, i = pick(
@@ -554,14 +645,13 @@ def shopFlow():
 def eventFlow():
     global p
     e = choice(eventList)
-    p.playerDispatch[e.effect](e.effectStrength)
+    p.addEffect(e.effect, e.effectStrength)
     print(e.story.replace("PLAYERNAME", p.name))
     i = "increased"
     d = "decreased"
     print(
-        f"{p.name}'s {e.effect} was {i if e.effectStrength > 0 else d} by {e.effectStrength if e.effectStrength > 0 else -e.effectStrength}"
+        f"{p.name}'s {e.effect} was {i if e.effectStrength > 0 else d} by {e.effectStrength if e.effectStrength > 0 else -e.effectStrength}!"
     )
-    _ = input("Press enter to continue.")
 
 
 def exitFlow():
