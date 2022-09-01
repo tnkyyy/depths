@@ -176,12 +176,66 @@ class Player:
         if self.health <= 0:
           self.endGame()
 
+
+
+
+  
     def endGame(self):
       print(f'{self.name} perished!')
       time.sleep(1)
       print(f'You reached floor {self.currentFloor}')
-      
-    
+      newData = {}
+      oldData = {}
+      lbFile = open('leaderboard.txt', 'r')
+      oldLeaderboard = lbFile.read().split('\n')
+      oldLeaderboard.pop(len(oldLeaderboard) - 1)
+      # Checking if the old leaderboard is empty
+      if len(oldLeaderboard) == 0:
+        newData[p.name] = p.currentFloor
+      else:
+        for row in oldLeaderboard:
+          row = row.split('|')
+          oldData[row[0]] = int(row[1])
+        oldData[p.name] = int(p.currentFloor)
+        sortedKeys = sorted(oldData.values())
+        sortedData = {}
+        for s in sortedKeys:
+          for k in oldData.keys():
+            if oldData[k] == s:
+              sortedData[k] = oldData[k]
+              oldData.pop(k)
+              break
+        keysList = list(sortedData.keys())
+        print(sortedData)
+        if len(keysList) == 5:
+          if p.currentFloor > int(sortedData[keysList[len(keysList) - 1]]):
+            sortedData.pop(keysList[len(keysList) - 1])
+            sortedData[p.currentFloor] = p.currentFloor
+        newData = sortedData
+      lbFile.close()
+      lbFile = open('leaderboard.txt', 'w')
+      for data in newData.keys():
+        lbFile.write(f'{data}|{newData[data]}\n')
+      lbFile.close()
+      # Displaying the leaderboard
+      os.system('clear')
+      print('Leaderboard results:')
+      print('\n')
+      time.sleep(1)
+      lbFile = open('leaderboard.txt', 'r')
+      oldLeaderboard = lbFile.read().split('\n')
+      oldLeaderboard.pop(-1)
+      # For the position of each person in the leaderboard (starting from 1)
+      for i in range(0, len(oldLeaderboard)):
+        data = oldLeaderboard[len(oldLeaderboard) - 1 - i].split('|')
+        print(f'#{str(i + 1)}: {data[0]} got to floor {data[1]}')
+        time.sleep(1)
+      # End!
+      print('Game over! Press play to try again.')
+      os.system('exit')
+
+
+  
     def changeName(self, defaultParameter):
         newName = ""
         while newName == "":
@@ -421,6 +475,10 @@ def generateGameMap(mapSize):
         row.append("w")
         result.append(row)
     result.append(["w" for x in range(mapSize)])
+  #### NEED TO MAKE THIS DYNAMIC TO THE MAP SIZE
+    exitCoords = [Coords(0, 2), Coords(2, 0), Coords(2, 4), Coords(4, 2)]
+    c = choice(exitCoords)
+    result[c.x][c.y] = 'e'
     return result
 
 
@@ -472,8 +530,8 @@ def formatMap(map):
 
 
 def displayMap(p, m):
-    # if p.hasMap:
-    print(formatMap(m))
+    if p.hasMap:
+      print(formatMap(m))
 
 
 # MOVEMENT
@@ -538,6 +596,7 @@ def fightFlow():
     e = getRandomEncounterOfLevel(p.currentFloor)
     print(f"You stumbled across a {e.id}!")
     print(f"Enemies: {', '.join(e.enemies)}")
+    _ = input('Press enter to start the battle: ')
     eList = [getEnemyDefinition(en) for en in e.enemies]
     while len(eList) > 0:
         # Player's turn
@@ -545,7 +604,7 @@ def fightFlow():
         print("It's your turn!")
         time.sleep(fsv)
         edisplaylist = map(
-            lambda enemy: f"{enemy.name}: . Health Remaining: {enemy.health}/{enemy.maxHealth}. Attack: {enemy.attack}"
+            lambda enemy: f"{enemy.name}: . Health Remaining: {enemy.health}/{enemy.maxHealth}. Attack: {enemy.attack}", eList
         )
         n, i = pick(
             edisplaylist,
@@ -607,7 +666,7 @@ restDialogues = [
 def restFlow():
     global p
     percentHealed = randrange(15, 30)
-    healed = math.floor((percentHealed / 10) * p.maxHealth)
+    healed = math.floor((percentHealed / 100) * p.maxHealth)
     p.changeHealth(healed)
     print(choice(restDialogues).replace("CONTENT", str(healed)))
     _ = input("Press enter to continue...")
@@ -655,11 +714,14 @@ def eventFlow():
 
 
 def exitFlow():
-    global p
-    print("You found the exit to floor {p.floor}!")
+    global p, m
+    print(f"You found the exit to floor {p.currentFloor}!")
     xp = randrange(50, 150)
     print(f"You gained {xp} xp!")
     p.gainXP(xp)
+    p.addFloor()
+    m = generateGameMap(5)
+    print(f'Starting floor {p.currentFloor}... ')
 
 
 tileDispatch = {
@@ -705,6 +767,7 @@ def takeTurn():
     if i:
         useItemFlow()
     print(f"Current Floor: {p.currentFloor}")
+    print(f"Current Health: {p.health}/{p.maxHealth}")
     displayMap(p, m)
     _ = input("Press enter when ready to move (map will dissapear): ")
     d = handleMovement(m)
@@ -717,8 +780,6 @@ def takeTurn():
 
 
 ####### GAME LOGIC #########
-p.changeMapStatus(True)
-p.findItem("Bulwark")
 
 while True:
     takeTurn()
